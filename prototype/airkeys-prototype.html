@@ -1,0 +1,1809 @@
+<title>AirKeys — UI Prototype</title>
+
+<style>
+  /* ============================================================
+     AirKeys prototype
+     Single committed theme: a darkened stage. This is an instrument
+     surface, not a document — it stays dark on any host ground, so
+     every colour below is painted explicitly from a token.
+     Accent (--glow) is re-bound per genre at runtime: the product's
+     colour grading is a real feature, so the prototype demonstrates it.
+     ============================================================ */
+
+  :root {
+    /* ground: near-black with a blue bias — a hall with the lights down */
+    --ground:   #06070B;
+    --ground-2: #0A0C12;
+    --panel:    #0D0F17;
+    --panel-2:  #12151F;
+    --edge:     #1E2231;
+    --edge-2:   #2A3044;
+
+    /* neutrals biased cool-violet toward the accent, not pure grey */
+    --haze:     #767E97;
+    --haze-2:   #99A1B8;
+    --chalk:    #E8EBF3;
+
+    /* genre accent — rebound by JS */
+    --glow:     #7FB2E5;
+    --glow-dim: #7FB2E533;
+
+    --good:     #5FD39A;
+    --warn:     #F2C45E;
+    --bad:      #F27C74;
+
+    --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+
+    --r-lg: 14px;
+    --r-md: 9px;
+    --r-sm: 6px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--chalk);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ambient wash behind everything — a stage, lit from above */
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(120% 70% at 50% -10%, var(--glow-dim) 0%, transparent 60%),
+      radial-gradient(90% 60% at 50% 110%, #12162200 0%, #0000 70%);
+    transition: background 900ms ease;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 24px 96px;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
+  }
+
+  .masthead h1 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(30px, 4.4vw, 46px);
+    letter-spacing: -0.015em;
+    margin: 0 0 4px;
+    text-wrap: balance;
+  }
+
+  .masthead h1 em {
+    font-style: italic;
+    color: var(--glow);
+    transition: color 700ms ease;
+  }
+
+  .masthead p {
+    margin: 0;
+    color: var(--haze-2);
+    max-width: 56ch;
+    font-size: 15px;
+  }
+
+  .stamp {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--haze);
+    border: 1px solid var(--edge);
+    border-radius: 100px;
+    padding: 6px 13px;
+    white-space: nowrap;
+    background: var(--panel);
+  }
+
+  /* ---------- the app frame ---------- */
+
+  .app {
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow:
+      0 1px 0 #ffffff08 inset,
+      0 40px 90px -40px #000000cc;
+  }
+
+  /* top bar */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--edge);
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    flex-wrap: wrap;
+  }
+
+  .wordmark {
+    font-family: var(--font-display);
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    padding-right: 14px;
+    border-right: 1px solid var(--edge);
+    white-space: nowrap;
+  }
+  .wordmark span { color: var(--glow); transition: color 700ms ease; }
+
+  .genres {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex: 1 1 320px;
+    min-width: 0;
+    padding: 2px;
+  }
+  .genres::-webkit-scrollbar { display: none; }
+
+  .genre {
+    appearance: none;
+    border: 1px solid var(--edge);
+    background: var(--ground-2);
+    color: var(--haze-2);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    letter-spacing: 0.01em;
+    padding: 7px 13px;
+    border-radius: 100px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 160ms, border-color 160ms, background 160ms, box-shadow 160ms;
+  }
+  .genre:hover { color: var(--chalk); border-color: var(--edge-2); }
+  .genre[aria-pressed="true"] {
+    color: var(--ground);
+    background: var(--glow);
+    border-color: var(--glow);
+    font-weight: 600;
+    box-shadow: 0 0 22px -6px var(--glow);
+  }
+  .genre:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+
+  .tools { display: flex; gap: 6px; align-items: center; }
+
+  .tool {
+    appearance: none;
+    border: 1px solid var(--edge);
+    background: var(--ground-2);
+    color: var(--haze-2);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 11px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: color 160ms, border-color 160ms, background 160ms;
+  }
+  .tool:hover { color: var(--chalk); border-color: var(--edge-2); }
+  .tool[aria-pressed="true"] { color: var(--glow); border-color: var(--glow); background: var(--glow-dim); }
+  .tool:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+
+  .rec {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-color: #4A2530;
+    background: #1A0E13;
+    color: #E9909A;
+  }
+  .rec .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #E4565F;
+    box-shadow: 0 0 10px #E4565F;
+  }
+  .rec[aria-pressed="true"] { background: #2A1017; border-color: #7A2F3B; color: #FFC2C6; }
+  .rec[aria-pressed="true"] .dot { animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.25; } }
+
+  /* viewport */
+  .viewport {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: #04050A;
+    overflow: hidden;
+    cursor: none;
+    touch-action: none;
+  }
+  .viewport canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .veil {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 16px;
+    text-align: center;
+    background: radial-gradient(60% 60% at 50% 50%, #06070Bee, #04050Afa);
+    backdrop-filter: blur(2px);
+    cursor: pointer;
+    z-index: 3;
+    padding: 20px;
+    transition: opacity 500ms ease;
+  }
+  .veil.gone { opacity: 0; pointer-events: none; }
+
+  .veil h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(24px, 3.6vw, 38px);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .veil p { margin: 0; color: var(--haze-2); max-width: 46ch; font-size: 14px; }
+
+  .begin {
+    appearance: none;
+    border: 1px solid var(--glow);
+    background: var(--glow-dim);
+    color: var(--chalk);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 13px 26px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: background 200ms, box-shadow 200ms;
+  }
+  .begin:hover { background: var(--glow); color: var(--ground); box-shadow: 0 0 34px -8px var(--glow); }
+  .begin:focus-visible { outline: 2px solid var(--glow); outline-offset: 3px; }
+
+  /* floating annotations inside the viewport */
+  .vhint {
+    position: absolute;
+    left: 14px; bottom: 12px;
+    z-index: 2;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--haze);
+    pointer-events: none;
+    opacity: 0.85;
+  }
+  .vquality {
+    position: absolute;
+    right: 14px; top: 12px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--haze);
+    background: #06070Bbb;
+    border: 1px solid var(--edge);
+    border-radius: 100px;
+    padding: 5px 11px;
+    pointer-events: none;
+  }
+  .vquality .lamp { width: 6px; height: 6px; border-radius: 50%; background: var(--good); box-shadow: 0 0 8px var(--good); }
+
+  /* note ribbon */
+  .ribbon {
+    position: relative;
+    height: 62px;
+    background: var(--ground-2);
+    border-top: 1px solid var(--edge);
+  }
+  .ribbon canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .ribbon .label {
+    position: absolute;
+    left: 12px; top: 7px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--haze);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  /* telemetry footer */
+  .telemetry {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    border-top: 1px solid var(--edge);
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  }
+
+  .readouts {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    color: var(--haze-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .readouts b { color: var(--chalk); font-weight: 600; }
+  .readouts .sep { color: var(--edge-2); }
+  .readouts .key { color: var(--glow); font-weight: 600; transition: color 700ms ease; }
+
+  .assist {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 260px;
+  }
+  .assist label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--haze);
+    white-space: nowrap;
+  }
+  .assist output {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--chalk);
+    font-variant-numeric: tabular-nums;
+    min-width: 62px;
+    text-align: right;
+  }
+
+  input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 1;
+    height: 22px;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--glow) var(--pct, 75%), var(--edge-2) var(--pct, 75%));
+  }
+  input[type="range"]::-moz-range-track {
+    height: 3px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--glow) var(--pct, 75%), var(--edge-2) var(--pct, 75%));
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 15px; height: 15px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: var(--chalk);
+    border: 3px solid var(--ground);
+    box-shadow: 0 0 12px -2px var(--glow);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: var(--chalk);
+    border: 3px solid var(--ground);
+  }
+  input[type="range"]:focus-visible { outline: 2px solid var(--glow); outline-offset: 4px; border-radius: 4px; }
+
+  /* ---------- notes below the app ---------- */
+
+  .notes { margin-top: 56px; }
+
+  .rule {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 26px;
+  }
+  .rule h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 25px;
+    margin: 0;
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+  }
+  .rule::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--edge), transparent);
+  }
+
+  .grid2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-md);
+    padding: 20px 22px;
+  }
+  .card h3 {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--glow);
+    margin: 0 0 14px;
+    font-weight: 500;
+    transition: color 700ms ease;
+  }
+  .card ul { margin: 0; padding-left: 17px; }
+  .card li { margin-bottom: 9px; color: var(--haze-2); font-size: 14px; }
+  .card li:last-child { margin-bottom: 0; }
+  .card li b { color: var(--chalk); font-weight: 600; }
+
+  .qlist {
+    margin-top: 18px;
+    display: grid;
+    gap: 1px;
+    background: var(--edge);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  .q {
+    background: var(--panel);
+    padding: 15px 20px;
+    display: flex;
+    gap: 16px;
+    align-items: baseline;
+  }
+  .q .tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--haze);
+    min-width: 84px;
+    flex-shrink: 0;
+  }
+  .q p { margin: 0; font-size: 14.5px; color: var(--haze-2); }
+  .q p b { color: var(--chalk); font-weight: 600; }
+
+  footer.foot {
+    margin-top: 46px;
+    padding-top: 20px;
+    border-top: 1px solid var(--edge);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--haze);
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  @media (max-width: 720px) {
+    .page { padding: 26px 14px 64px; }
+    .viewport { aspect-ratio: 4 / 3; }
+    .assist { margin-left: 0; width: 100%; min-width: 0; }
+    .wordmark { border-right: none; padding-right: 0; }
+  }
+</style>
+
+<div class="backdrop" id="backdrop"></div>
+
+<div class="page">
+
+  <div class="masthead">
+    <div>
+      <h1>AirKeys — <em>the invisible piano</em></h1>
+      <p>Interactive UI prototype. The hands are simulated, but the audio engine and the
+         composition engine are real — move your pointer across the stage and click, or
+         press&nbsp;<b>A–L</b>.</p>
+    </div>
+    <div class="stamp">Prototype · v0.1</div>
+  </div>
+
+  <!-- ======================= THE APP ======================= -->
+  <div class="app">
+
+    <div class="topbar">
+      <div class="wordmark">Air<span>Keys</span></div>
+
+      <div class="genres" id="genres" role="group" aria-label="Genre"></div>
+
+      <div class="tools">
+        <button class="tool" id="btn-silhouette" aria-pressed="false" title="Hide the camera feed, keep only the hand-light">Silhouette</button>
+        <button class="tool" id="btn-band" aria-pressed="true" title="Auto-accompaniment">Band</button>
+        <button class="tool rec" id="btn-rec" aria-pressed="false"><span class="dot"></span>Rec</button>
+      </div>
+    </div>
+
+    <div class="viewport" id="viewport">
+      <canvas id="stage"></canvas>
+
+      <div class="vquality"><span class="lamp" id="lamp"></span><span id="qtext">Tracking good</span></div>
+      <div class="vhint" id="vhint">Move &amp; click to play · A–L for fingers · Space for pedal</div>
+
+      <div class="veil" id="veil">
+        <h2>Play an invisible piano.</h2>
+        <p>Nothing leaves your device. In the real app your camera watches your hands —
+           here they play themselves until you take over.</p>
+        <button class="begin" id="begin">Start playing</button>
+      </div>
+    </div>
+
+    <div class="ribbon">
+      <canvas id="ribbon"></canvas>
+      <span class="label">Recent notes</span>
+    </div>
+
+    <div class="telemetry">
+      <div class="readouts">
+        <span class="key" id="r-key">C minor</span>
+        <span class="sep">/</span>
+        <span><b id="r-bpm">74</b> BPM</span>
+        <span class="sep">/</span>
+        <span id="r-chord">i</span>
+        <span class="sep">/</span>
+        <span>latency <b id="r-lat">41</b> ms</span>
+        <span class="sep">/</span>
+        <span id="r-voices">0 voices</span>
+      </div>
+
+      <div class="assist">
+        <label for="assist">Assist</label>
+        <input type="range" id="assist" min="0" max="100" value="75" style="--pct:75%">
+        <output id="assist-out">75 · guided</output>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ======================= NOTES ======================= -->
+  <div class="notes">
+
+    <div class="rule"><h2>What you're hearing</h2></div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>Real in this prototype</h3>
+        <ul>
+          <li><b>The piano.</b> Synthesised per note — inharmonic partial stack, per-partial decay, hammer transient, procedurally generated convolution reverb. The shipping app swaps this for multi-sampled acoustic piano.</li>
+          <li><b>The composition engine.</b> Key and mode, a per-genre progression graph, nearest-voicing voice leading, contour-driven melody, chord-tone vs. passing-tone selection, partial quantisation and swing.</li>
+          <li><b>Genre behaviour.</b> Switching genre changes scale, harmony, voicings, groove, tempo and colour grade. Listen to Jazz Club against Ambient.</li>
+          <li><b>The Assist slider.</b> Drag it — quantisation, flourish density and accompaniment all move with it.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Simulated / stubbed</h3>
+        <ul>
+          <li><b>Hand tracking.</b> No camera. The hands are procedural and either self-play or follow your pointer.</li>
+          <li><b>The camera feed.</b> Stood in by a graded, grained field. Try <b>Silhouette</b> to see the camera-off treatment.</li>
+          <li><b>Predictive onset.</b> The real system fires each note ~45&nbsp;ms before your finger lands. Here, clicks are immediate.</li>
+          <li><b>Telemetry.</b> Latency and tracking readouts are plausible fictions showing where the real numbers surface.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="rule" style="margin-top:44px"><h2>Where I'd like your feedback</h2></div>
+
+    <div class="qlist">
+      <div class="q"><span class="tag">Stage</span><p>The camera view is treated as <b>the stage</b>, with chrome floating over it. Right call, or should the visualiser dominate and the camera shrink to a corner?</p></div>
+      <div class="q"><span class="tag">Controls</span><p>One visible <b>Assist</b> slider is the only performance control. Do you want key, tempo or density surfaced too — or is one dial the point?</p></div>
+      <div class="q"><span class="tag">Genre</span><p>Chips in the top bar versus a larger carousel with <b>audio audition on hover</b>. Chips are compact; the carousel sells the genres harder.</p></div>
+      <div class="q"><span class="tag">Visuals</span><p>Hands render as <b>light rather than skeletons</b>, with particle bursts on each note. Premium, or screensaver?</p></div>
+      <div class="q"><span class="tag">Ribbon</span><p>The recent-note ribbon under the stage — genuinely useful feedback, or clutter that should go?</p></div>
+      <div class="q"><span class="tag">Record</span><p><b>Rec</b> sits as a primary action because sharing is the growth loop. Too prominent for a first-run screen?</p></div>
+    </div>
+
+    <footer class="foot">
+      <span>AirKeys · prototype for review</span>
+      <span>Audio + music engine live · hands simulated</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ============================================================
+     1. THEORY
+     ============================================================ */
+
+  const NOTE_NAMES = ["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"];
+
+  const SCALES = {
+    aeolian:    [0,2,3,5,7,8,10],
+    dorian:     [0,2,3,5,7,9,10],
+    ionian:     [0,2,4,5,7,9,11],
+    lydian:     [0,2,4,6,7,9,11],
+    mixolydian: [0,2,4,5,7,9,10],
+    pentMinor:  [0,3,5,7,10],
+    harmMinor:  [0,2,3,5,7,8,11]
+  };
+
+  // chord qualities as semitone sets from the chord root
+  const QUAL = {
+    min:    [0,3,7],
+    maj:    [0,4,7],
+    min7:   [0,3,7,10],
+    maj7:   [0,4,7,11],
+    dom7:   [0,4,7,10],
+    min9:   [0,3,7,10,14],
+    maj9:   [0,4,7,11,14],
+    dom9:   [0,4,7,10,14],
+    sus2:   [0,2,7],
+    sus4:   [0,5,7],
+    min11:  [0,3,7,10,17],
+    dim7:   [0,3,6,9],
+    add9:   [0,4,7,14],
+    m6:     [0,3,7,9],
+    quartal:[0,5,10,15]
+  };
+
+  /* Genre = a config bundle. Progressions are [scaleDegreeSemitone, quality]. */
+  const GENRES = {
+    cinematic: {
+      name: "Cinematic", accent: "#7FB2E5", grade: [0.42, 0.60, 0.90],
+      tonic: 0, scale: "aeolian", bpm: 74, swing: 0, barsPerChord: 2,
+      prog: [[0,"min"],[8,"maj"],[3,"maj"],[10,"maj"],[0,"min"],[5,"min"],[8,"maj"],[7,"sus4"]],
+      voicing: "open", pad: 0.55, drums: 0, bassOct: 2, melOct: 5, sustain: 0.9,
+      reverb: 0.52, ornament: 0.30
+    },
+    lofi: {
+      name: "Lo-fi", accent: "#C49BDC", grade: [0.72, 0.55, 0.92],
+      tonic: 9, scale: "dorian", bpm: 78, swing: 0.20, barsPerChord: 1,
+      prog: [[0,"min9"],[5,"dom9"],[10,"maj9"],[3,"maj7"]],
+      voicing: "rootless", pad: 0.22, drums: 0.5, bassOct: 2, melOct: 5, sustain: 0.7,
+      reverb: 0.40, ornament: 0.25
+    },
+    jazz: {
+      name: "Jazz Club", accent: "#E0A45E", grade: [0.95, 0.68, 0.38],
+      tonic: 5, scale: "dorian", bpm: 122, swing: 0.34, barsPerChord: 1,
+      prog: [[2,"min7"],[7,"dom9"],[0,"maj9"],[0,"maj9"],[2,"min7"],[7,"dom7"],[9,"min7"],[4,"dom7"]],
+      voicing: "rootless", pad: 0, drums: 0.62, bassOct: 2, melOct: 5, sustain: 0.35,
+      reverb: 0.28, ornament: 0.55
+    },
+    gospel: {
+      name: "Gospel", accent: "#F0C96E", grade: [1.0, 0.80, 0.45],
+      tonic: 3, scale: "ionian", bpm: 68, swing: 0.14, barsPerChord: 1,
+      prog: [[0,"maj9"],[5,"dom9"],[9,"min7"],[7,"dom7"],[2,"min9"],[5,"maj7"],[0,"add9"],[7,"sus4"]],
+      voicing: "spread", pad: 0.18, drums: 0.3, bassOct: 2, melOct: 5, sustain: 0.8,
+      reverb: 0.46, ornament: 0.62
+    },
+    synthwave: {
+      name: "Synthwave", accent: "#EE73AE", grade: [0.95, 0.45, 0.72],
+      tonic: 7, scale: "aeolian", bpm: 100, swing: 0, barsPerChord: 1,
+      prog: [[0,"min"],[10,"maj"],[8,"maj"],[7,"min"]],
+      voicing: "open", pad: 0.62, drums: 0.55, bassOct: 2, melOct: 5, sustain: 0.6,
+      reverb: 0.44, ornament: 0.35
+    },
+    ambient: {
+      name: "Ambient", accent: "#6ED4C6", grade: [0.42, 0.86, 0.80],
+      tonic: 2, scale: "lydian", bpm: 58, swing: 0, barsPerChord: 4,
+      prog: [[0,"maj9"],[7,"sus2"],[9,"min9"],[5,"maj7"]],
+      voicing: "quartal", pad: 0.70, drums: 0, bassOct: 2, melOct: 5, sustain: 1.0,
+      reverb: 0.68, ornament: 0.18
+    }
+  };
+
+  /* ============================================================
+     2. AUDIO ENGINE
+     Native-node graph. Piano voice = inharmonic partial stack with
+     per-partial decay + a filtered hammer transient. Reverb IR is
+     generated at runtime (no external assets are loadable here).
+     ============================================================ */
+
+  const Audio = {
+    ctx: null, ready: false,
+    master: null, dry: null, verbSend: null, convolver: null,
+    padBus: null, drumBus: null,
+    voices: 0,
+
+    init() {
+      if (this.ctx) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ctx = this.ctx = new AC({ latencyHint: "interactive" });
+
+      // ---- master chain: HPF -> glue comp -> ceiling -> out
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass"; hp.frequency.value = 30;
+
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -18; comp.knee.value = 26;
+      comp.ratio.value = 2.4; comp.attack.value = 0.006; comp.release.value = 0.26;
+
+      const out = ctx.createGain();
+      out.gain.value = 0.85;
+
+      hp.connect(comp); comp.connect(out); out.connect(ctx.destination);
+      this.master = hp;
+
+      // ---- reverb
+      const conv = ctx.createConvolver();
+      conv.buffer = this.makeIR(2.9, 2.2);
+      const verbGain = ctx.createGain(); verbGain.gain.value = 0.5;
+      conv.connect(verbGain); verbGain.connect(hp);
+      this.convolver = conv;
+      this.verbSend = ctx.createGain(); this.verbSend.gain.value = 0.45;
+      this.verbSend.connect(conv);
+
+      this.dry = ctx.createGain(); this.dry.gain.value = 0.9;
+      this.dry.connect(hp);
+
+      this.padBus = ctx.createGain(); this.padBus.gain.value = 0.0;
+      const padLp = ctx.createBiquadFilter();
+      padLp.type = "lowpass"; padLp.frequency.value = 1900; padLp.Q.value = 0.4;
+      this.padBus.connect(padLp);
+      padLp.connect(this.dry); padLp.connect(this.verbSend);
+
+      this.drumBus = ctx.createGain(); this.drumBus.gain.value = 0.0;
+      this.drumBus.connect(this.dry);
+      const dSend = ctx.createGain(); dSend.gain.value = 0.18;
+      this.drumBus.connect(dSend); dSend.connect(this.verbSend);
+
+      this.noise = this.makeNoise(1.0);
+      this.ready = true;
+    },
+
+    makeNoise(sec) {
+      const n = Math.floor(this.ctx.sampleRate * sec);
+      const b = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+      const d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      return b;
+    },
+
+    /* Procedural stereo impulse response: exponential-decay noise with a
+       few early reflections. Stands in for the shipping hall IR. */
+    makeIR(seconds, curve) {
+      const sr = this.ctx.sampleRate;
+      const len = Math.floor(sr * seconds);
+      const buf = this.ctx.createBuffer(2, len, sr);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          const t = i / len;
+          const env = Math.pow(1 - t, curve);
+          d[i] = (Math.random() * 2 - 1) * env;
+        }
+        // early reflections give it a room rather than a wash
+        const taps = [0.011, 0.019, 0.031, 0.043, 0.062, 0.081];
+        taps.forEach((tp, k) => {
+          const idx = Math.floor((tp + ch * 0.0035) * sr);
+          if (idx < len) d[idx] += (k % 2 ? -1 : 1) * 0.42 / (k + 1);
+        });
+      }
+      return buf;
+    },
+
+    setGenre(g) {
+      if (!this.ready) return;
+      const t = this.ctx.currentTime;
+      this.verbSend.gain.setTargetAtTime(g.reverb, t, 0.4);
+    },
+
+    /* --- the piano voice --- */
+    piano(midi, vel, when, opts) {
+      if (!this.ready) return;
+      opts = opts || {};
+      const ctx = this.ctx;
+      const t = Math.max(when, ctx.currentTime + 0.001);
+      const f0 = 440 * Math.pow(2, (midi - 69) / 12);
+      if (f0 > 7000 || f0 < 20) return;
+
+      const bright = 0.35 + 0.65 * vel;
+      const nyq = ctx.sampleRate * 0.5;
+
+      // low notes ring long, high notes die fast
+      let decay = 1.5 + 9.5 * Math.exp(-(midi - 21) / 25);
+      decay *= (opts.sustain != null ? 0.55 + 0.75 * opts.sustain : 1);
+      if (opts.staccato) decay = Math.min(decay, 0.5);
+
+      const nPartials = midi > 84 ? 3 : midi > 72 ? 4 : 6;
+      const B = 0.00006 * Math.pow(2, (midi - 60) / 16);   // inharmonicity
+
+      const voiceGain = ctx.createGain();
+      voiceGain.gain.value = 1;
+      voiceGain.connect(this.dry);
+      const send = ctx.createGain();
+      send.gain.value = 0.8;
+      voiceGain.connect(send); send.connect(this.verbSend);
+
+      const peak = 0.20 * Math.pow(vel, 1.25) * (opts.gain != null ? opts.gain : 1);
+
+      for (let n = 1; n <= nPartials; n++) {
+        const f = f0 * n * Math.sqrt(1 + B * n * n);
+        if (f > nyq * 0.9) break;
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = f;
+        // tiny detune keeps the unison strings from sounding sterile
+        osc.detune.value = (Math.random() - 0.5) * 4;
+
+        const a = (peak / Math.pow(n, 1.42)) * Math.pow(bright, n - 1);
+        const d = decay / (1 + 0.62 * (n - 1));
+
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(a, t + 0.004);
+        g.gain.exponentialRampToValueAtTime(Math.max(a * 0.0008, 1e-5), t + d);
+
+        osc.connect(g); g.connect(voiceGain);
+        osc.start(t);
+        osc.stop(t + d + 0.05);
+        if (n === 1) {
+          this.voices++;
+          osc.onended = () => { this.voices = Math.max(0, this.voices - 1); };
+        }
+      }
+
+      // hammer transient — this is most of the "it's a piano" cue
+      const src = ctx.createBufferSource();
+      src.buffer = this.noise;
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = Math.min(nyq * 0.8, f0 * 4.5);
+      bp.Q.value = 0.9;
+      const hg = ctx.createGain();
+      const hAmp = 0.035 * Math.pow(vel, 1.9);
+      hg.gain.setValueAtTime(hAmp, t);
+      hg.gain.exponentialRampToValueAtTime(1e-4, t + 0.055);
+      src.connect(bp); bp.connect(hg); hg.connect(voiceGain);
+      src.start(t, Math.random() * 0.4);
+      src.stop(t + 0.09);
+    },
+
+    pad(midis, when, dur, amt) {
+      if (!this.ready || amt <= 0) return;
+      const ctx = this.ctx, t = Math.max(when, ctx.currentTime + 0.001);
+      midis.forEach((m) => {
+        const f = 440 * Math.pow(2, (m - 69) / 12);
+        [0, 1].forEach((k) => {
+          const o = ctx.createOscillator();
+          o.type = "sawtooth";
+          o.frequency.value = f;
+          o.detune.value = k ? 7 : -7;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(0.014 * amt, t + dur * 0.35);
+          g.gain.linearRampToValueAtTime(0, t + dur);
+          o.connect(g); g.connect(this.padBus);
+          o.start(t); o.stop(t + dur + 0.05);
+        });
+      });
+    },
+
+    kick(when, amt) {
+      const ctx = this.ctx, t = when;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(120, t);
+      o.frequency.exponentialRampToValueAtTime(42, t + 0.09);
+      g.gain.setValueAtTime(0.7 * amt, t);
+      g.gain.exponentialRampToValueAtTime(1e-4, t + 0.26);
+      o.connect(g); g.connect(this.drumBus);
+      o.start(t); o.stop(t + 0.3);
+    },
+
+    snare(when, amt, brush) {
+      const ctx = this.ctx, t = when;
+      const s = ctx.createBufferSource(); s.buffer = this.noise;
+      const f = ctx.createBiquadFilter();
+      f.type = brush ? "bandpass" : "highpass";
+      f.frequency.value = brush ? 2600 : 1500;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime((brush ? 0.10 : 0.24) * amt, t);
+      g.gain.exponentialRampToValueAtTime(1e-4, t + (brush ? 0.17 : 0.13));
+      s.connect(f); f.connect(g); g.connect(this.drumBus);
+      s.start(t, Math.random() * 0.5); s.stop(t + 0.25);
+    },
+
+    hat(when, amt) {
+      const ctx = this.ctx, t = when;
+      const s = ctx.createBufferSource(); s.buffer = this.noise;
+      const f = ctx.createBiquadFilter();
+      f.type = "highpass"; f.frequency.value = 7800;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.09 * amt, t);
+      g.gain.exponentialRampToValueAtTime(1e-4, t + 0.045);
+      s.connect(f); f.connect(g); g.connect(this.drumBus);
+      s.start(t, Math.random() * 0.5); s.stop(t + 0.08);
+    }
+  };
+
+  /* ============================================================
+     3. COMPOSITION ENGINE
+     ============================================================ */
+
+  const Music = {
+    genre: GENRES.cinematic,
+    key: "cinematic",
+    chordIdx: 0,
+    voicing: [],          // last left-hand voicing (midi)
+    lastMel: 72,
+    contour: 1,
+    motif: [],
+    assist: 0.75,
+    band: true,
+    pedal: false,
+
+    setGenre(k) {
+      this.genre = GENRES[k];
+      this.key = k;
+      this.chordIdx = 0;
+      this.voicing = [];
+      this.lastMel = this.genre.melOct * 12 + this.genre.tonic;
+      Audio.setGenre(this.genre);
+    },
+
+    chord(i) {
+      const g = this.genre;
+      const p = g.prog[((i % g.prog.length) + g.prog.length) % g.prog.length];
+      return { root: (g.tonic + p[0]) % 12, quality: p[1], ivals: QUAL[p[1]] };
+    },
+
+    current() { return this.chord(this.chordIdx); },
+
+    chordTones(c) { return c.ivals.map((x) => (c.root + x) % 12); },
+
+    scaleTones() {
+      const g = this.genre;
+      return SCALES[g.scale].map((x) => (g.tonic + x) % 12);
+    },
+
+    label() {
+      const c = this.current();
+      const q = c.quality;
+      const sup = q === "min" ? "m" : q === "maj" ? "" :
+                  q === "min7" ? "m7" : q === "maj7" ? "maj7" :
+                  q === "dom7" ? "7" : q === "min9" ? "m9" :
+                  q === "maj9" ? "maj9" : q === "dom9" ? "9" :
+                  q === "sus4" ? "sus4" : q === "sus2" ? "sus2" :
+                  q === "add9" ? "add9" : q === "quartal" ? "q" :
+                  q === "min11" ? "m11" : q === "m6" ? "m6" : q;
+      return NOTE_NAMES[c.root] + sup;
+    },
+
+    /* --- voice leading: pick the voicing nearest the previous one --- */
+    voiceLead(c, center) {
+      const style = this.genre.voicing;
+      let pcs;
+
+      if (style === "quartal") {
+        // stack diatonic fourths from the chord root, so the voicing stays
+        // in the mode instead of wandering out of it
+        const sc = SCALES[this.genre.scale];
+        const rel = (((c.root - this.genre.tonic) % 12) + 12) % 12;
+        let base = sc.indexOf(rel);
+        if (base < 0) base = 0;
+        const degAt = (d) => sc[(base + d) % sc.length];
+        const steps = [0, 3, 6];
+        // a diatonic fourth is a tritone at some scale positions (lydian
+        // especially); nudge that voice a degree rather than voicing it
+        for (let i = 1; i < steps.length; i++) {
+          const lo = degAt(steps[i - 1]), hi = degAt(steps[i]);
+          if ((((hi - lo) % 12) + 12) % 12 === 6) steps[i] += 1;
+        }
+        pcs = steps.map((d) => (this.genre.tonic + degAt(d)) % 12);
+      } else {
+        let sel = c.ivals.slice();
+        if (style === "rootless" && sel.length > 3) sel = sel.slice(1);
+        pcs = sel.map((x) => (c.root + x) % 12);
+      }
+
+      const prev = this.voicing.length ? this.voicing : null;
+
+      let out = pcs.map((pc, i) => {
+        let best = null, bestCost = Infinity;
+        for (let oct = -2; oct <= 2; oct++) {
+          const m = pc + 12 * (Math.round((center - pc) / 12) + oct);
+          if (m < 34 || m > 80) continue;
+          const ref = prev && prev[i] != null ? prev[i] : center;
+          let cost = Math.abs(m - ref);
+          // shape preferences are a nudge, not a mandate — they must not
+          // out-vote the voice-leading term or the voicing climbs the keyboard
+          if (style === "spread") cost += Math.abs(m - (center + i * 4)) * 0.16;
+          if (style === "open")   cost += Math.abs(m - (center + i * 6)) * 0.16;
+          if (m < 48 && i > 0) cost += 6;
+          if (cost < bestCost) { bestCost = cost; best = m; }
+        }
+        return best == null ? pc + 48 : best;
+      });
+
+      out.sort((a, b) => a - b);
+
+      // Enforce spacing by octave displacement, which preserves the pitch
+      // class. Adding a bare +7 (as an earlier version did) invents notes
+      // that aren't in the chord and can collide with the voice above.
+      for (let i = 1; i < out.length; i++) {
+        while (out[i] <= out[i - 1]) out[i] += 12;
+        // nothing closer than a fifth down in the mud register. Only the
+        // genuinely low pairs get this, or one deep voice cascades the whole
+        // voicing an octave up the keyboard.
+        if (out[i - 1] < 48 && out[i] - out[i - 1] < 7) out[i] += 12;
+      }
+      out = out.filter((m) => m <= 88);
+      // keep it inside a plausible hand span — drop extensions, not the root
+      while (out.length > 3 && out[out.length - 1] - out[0] > 17) out.pop();
+      // still too wide (a stranded low voice): fold the bottom up an octave.
+      // The guard keeps the array ordered and guarantees the loop terminates.
+      while (out.length > 1 && out[out.length - 1] - out[0] > 17 && out[0] + 12 < out[1]) {
+        out[0] += 12;
+      }
+      if (!out.length) out = [pcs[0] + 48];
+
+      this.voicing = out;
+      return out;
+    },
+
+    /* --- melody: contour decides direction, harmony decides the note --- */
+    nextMelody(dir, strong, zone) {
+      const sc = this.scaleTones();
+      const ct = this.chordTones(this.current());
+      const pool = strong ? ct : sc;
+      const target = this.genre.melOct * 12 + this.genre.tonic + Math.round(zone * 19) - 7;
+
+      let base = this.lastMel + dir * (2 + Math.floor(Math.random() * 3));
+      base = base * 0.55 + target * 0.45;
+
+      let best = null, bestD = Infinity;
+      for (let m = Math.round(base) - 9; m <= Math.round(base) + 9; m++) {
+        if (m < 55 || m > 96) continue;
+        if (!pool.includes(((m % 12) + 12) % 12)) continue;
+        const d = Math.abs(m - base) + (dir !== 0 && Math.sign(m - this.lastMel) !== dir ? 5 : 0);
+        if (d < bestD) { bestD = d; best = m; }
+      }
+      if (best == null) best = this.lastMel;
+      this.lastMel = best;
+      this.motif.push(best);
+      if (this.motif.length > 16) this.motif.shift();
+      return best;
+    },
+
+    advance() {
+      // NB: this.voicing is deliberately NOT cleared — carrying the previous
+      // voicing across the chord change is exactly what makes voiceLead smooth.
+      this.chordIdx++;
+    }
+  };
+
+  /* ============================================================
+     4. TRANSPORT — lookahead scheduling against the audio clock
+     ============================================================ */
+
+  const Transport = {
+    running: false,
+    step: 0,
+    nextTime: 0,
+    timer: null,
+    onStep: null,
+
+    start() {
+      if (this.running) return;
+      this.running = true;
+      this.step = 0;
+      this.nextTime = Audio.ctx.currentTime + 0.08;
+      this.timer = setInterval(() => this.tick(), 22);
+    },
+
+    stepDur() {
+      const spb = 60 / Music.genre.bpm;
+      return spb / 4;                     // 16th notes
+    },
+
+    swungDur(step) {
+      const s = Music.genre.swing;
+      const d = this.stepDur();
+      if (!s) return d;
+      return (step % 2 === 0) ? d * (1 + s) : d * (1 - s);
+    },
+
+    tick() {
+      if (!this.running) return;
+      const ctx = Audio.ctx;
+      while (this.nextTime < ctx.currentTime + 0.12) {
+        if (this.onStep) this.onStep(this.step, this.nextTime);
+        this.nextTime += this.swungDur(this.step);
+        this.step++;
+      }
+    },
+
+    /* nearest grid line at or after `t` — quantisation blended by assist */
+    quantize(t) {
+      const q = Music.assist * 0.85;
+      if (q < 0.05) return t;
+      const d = this.stepDur();
+      const grid = Math.round((t - this.nextTime) / d) * d + this.nextTime;
+      return t + (grid - t) * q;
+    }
+  };
+
+  /* ============================================================
+     5. PERFORMANCE — turns intents into notes (both auto and manual)
+     ============================================================ */
+
+  const ribbonNotes = [];
+  const bursts = [];
+
+  function emitNote(midi, vel, when, hand, opts) {
+    Audio.piano(midi, vel, when, Object.assign({
+      sustain: Music.pedal ? 1 : Music.genre.sustain
+    }, opts || {}));
+    ribbonNotes.push({ midi, vel, t: performance.now(), hand });
+    if (ribbonNotes.length > 90) ribbonNotes.shift();
+  }
+
+  const Perform = {
+    lastStrikeX: 0.5,
+
+    /* one gesture in → a musically-appropriate number of notes out */
+    strike(hand, zone, vel, fingers) {
+      if (!Audio.ready) return;
+      const now = Audio.ctx.currentTime;
+      const t = Transport.quantize(now + 0.02);
+      const g = Music.genre;
+
+      if (hand === "L") {
+        const c = Music.current();
+        const bass = c.root + 12 * g.bassOct + 12;
+        emitNote(bass, Math.min(1, vel * 0.95), t, "L");
+        if (fingers >= 2) {
+          const v = Music.voiceLead(c, 55);
+          v.forEach((m, i) => emitNote(m, vel * (0.62 - i * 0.04), t + i * 0.006, "L"));
+        }
+        Hands.flash("L", t - now);
+        return;
+      }
+
+      // right hand: contour → melody
+      const dir = zone > this.lastStrikeX + 0.035 ? 1 : zone < this.lastStrikeX - 0.035 ? -1 : 0;
+      this.lastStrikeX = zone;
+      const strong = vel > 0.6;
+
+      if (fingers >= 3) {
+        // chord gesture — density from finger count, width from spread
+        const c = Music.current();
+        const v = Music.voiceLead(c, 68 + Math.round(zone * 8));
+        v.forEach((m, i) => emitNote(m + 12, vel * (0.85 - i * 0.06), t + i * 0.008, "R"));
+      } else {
+        const m = Music.nextMelody(dir, strong, zone);
+        emitNote(m, vel, t, "R");
+
+        // gesture amplification: a firm, directional strike earns a flourish
+        const chance = g.ornament * Music.assist;
+        if (dir !== 0 && vel > 0.55 && Math.random() < chance) {
+          const n = 3 + Math.floor(Math.random() * 4);
+          const sd = Transport.stepDur() * 0.5;
+          for (let i = 1; i <= n; i++) {
+            const mm = Music.nextMelody(dir, false, zone);
+            emitNote(mm, vel * (0.72 - i * 0.05), t + i * sd * (1 - i * 0.04), "R", { staccato: true });
+          }
+        }
+      }
+      Hands.flash("R", t - now);
+    }
+  };
+
+  /* ============================================================
+     6. HANDS — procedural, either self-playing or pointer-driven
+     ============================================================ */
+
+  const Hands = {
+    L: { x: 0.32, y: 0.60, tx: 0.32, ty: 0.60, flex: [0,0,0,0,0], seed: 11 },
+    R: { x: 0.68, y: 0.58, tx: 0.68, ty: 0.58, flex: [0,0,0,0,0], seed: 47 },
+    manual: false,
+
+    flash(which, delay) {
+      const h = this[which];
+      const f = Math.floor(Math.random() * 5);
+      setTimeout(() => {
+        h.flex[f] = 1;
+        const p = this.tipPos(which, f);
+        spawnBurst(p.x, p.y, which);
+      }, Math.max(0, delay * 1000));
+    },
+
+    tipPos(which, finger) {
+      const h = this[which];
+      const spread = 0.052;
+      const fx = h.x + (finger - 2) * spread * (which === "L" ? -1 : 1);
+      const fy = h.y + 0.075 + h.flex[finger] * 0.05 - Math.abs(finger - 2) * 0.012;
+      return { x: fx, y: fy };
+    },
+
+    update(dt, tSec) {
+      ["L", "R"].forEach((k) => {
+        const h = this[k];
+        // idle drift so the hands never look frozen
+        if (!this.manual || k === "L") {
+          const s = h.seed;
+          h.tx += (Math.sin(tSec * 0.31 + s) * 0.0009);
+          h.ty += (Math.cos(tSec * 0.24 + s) * 0.0007);
+          h.tx = Math.min(0.86, Math.max(0.14, h.tx));
+          h.ty = Math.min(0.74, Math.max(0.34, h.ty));
+        }
+        h.x += (h.tx - h.x) * Math.min(1, dt * 9);
+        h.y += (h.ty - h.y) * Math.min(1, dt * 9);
+        for (let i = 0; i < 5; i++) h.flex[i] *= Math.pow(0.0025, dt);
+      });
+    }
+  };
+
+  /* ============================================================
+     7. STAGE RENDERER
+     ============================================================ */
+
+  const stage = document.getElementById("stage");
+  const sctx = stage.getContext("2d");
+  const ribbonCv = document.getElementById("ribbon");
+  const rctx = ribbonCv.getContext("2d");
+  let W = 0, H = 0, RW = 0, RH = 0, dpr = 1;
+
+  function resize() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    const r = stage.getBoundingClientRect();
+    W = r.width; H = r.height;
+    stage.width = Math.round(W * dpr); stage.height = Math.round(H * dpr);
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const rr = ribbonCv.getBoundingClientRect();
+    RW = rr.width; RH = rr.height;
+    ribbonCv.width = Math.round(RW * dpr); ribbonCv.height = Math.round(RH * dpr);
+    rctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+
+  function accentRGB() {
+    const g = Music.genre.grade;
+    return [Math.round(g[0] * 255), Math.round(g[1] * 255), Math.round(g[2] * 255)];
+  }
+
+  /* Pre-rendered glow sprite. Building a radial gradient per particle per
+     frame is the classic way to make a canvas scene crawl; we bake one
+     sprite per accent colour instead and blit it. */
+  let glowSprite = null;
+  function buildGlowSprite() {
+    const [r, g, b] = accentRGB();
+    const S = 96;
+    const c = document.createElement("canvas");
+    c.width = c.height = S;
+    const x = c.getContext("2d");
+    const grd = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    grd.addColorStop(0, `rgba(${r},${g},${b},1)`);
+    grd.addColorStop(0.28, `rgba(${r},${g},${b},0.42)`);
+    grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    x.fillStyle = grd;
+    x.fillRect(0, 0, S, S);
+    glowSprite = c;
+  }
+
+  function blitGlow(ctx2, x, y, size, alpha) {
+    if (!glowSprite) return;
+    ctx2.globalAlpha = Math.max(0, Math.min(1, alpha));
+    ctx2.drawImage(glowSprite, x - size / 2, y - size / 2, size, size);
+    ctx2.globalAlpha = 1;
+  }
+
+  function spawnBurst(nx, ny, hand) {
+    if (reduceMotion) return;
+    const n = 11;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 20 + Math.random() * 85;
+      bursts.push({
+        x: nx * W, y: ny * H,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 26,
+        life: 1, hand
+      });
+    }
+    if (bursts.length > 420) bursts.splice(0, bursts.length - 420);
+  }
+
+  let silhouette = false;
+  let grainSeed = 0;
+
+  function drawStage(dt, tSec) {
+    const [ar, ag, ab] = accentRGB();
+
+    // ---- ground + graded "camera" field
+    sctx.fillStyle = "#04050A";
+    sctx.fillRect(0, 0, W, H);
+
+    if (!silhouette) {
+      // stand-in for the colour-graded camera feed
+      const g1 = sctx.createRadialGradient(W * 0.5, H * 0.34, 10, W * 0.5, H * 0.4, W * 0.72);
+      g1.addColorStop(0, `rgba(${ar},${ag},${ab},0.075)`);
+      g1.addColorStop(0.55, `rgba(${ar},${ag},${ab},0.022)`);
+      g1.addColorStop(1, "rgba(0,0,0,0)");
+      sctx.fillStyle = g1;
+      sctx.fillRect(0, 0, W, H);
+
+      // a soft implied figure so the frame doesn't read as empty
+      sctx.save();
+      sctx.globalAlpha = 0.30;
+      const bg = sctx.createRadialGradient(W * 0.5, H * 1.02, 10, W * 0.5, H * 1.02, H * 0.78);
+      bg.addColorStop(0, "rgba(120,132,160,0.30)");
+      bg.addColorStop(1, "rgba(0,0,0,0)");
+      sctx.fillStyle = bg;
+      sctx.beginPath();
+      sctx.ellipse(W * 0.5, H * 1.06, W * 0.30, H * 0.62, 0, 0, Math.PI * 2);
+      sctx.fill();
+      sctx.restore();
+    }
+
+    // ---- play-volume guide
+    sctx.save();
+    sctx.setLineDash([3, 8]);
+    sctx.lineWidth = 1;
+    sctx.strokeStyle = `rgba(${ar},${ag},${ab},0.20)`;
+    sctx.beginPath();
+    sctx.moveTo(W * 0.10, H * 0.70); sctx.lineTo(W * 0.90, H * 0.70);
+    sctx.stroke();
+    sctx.restore();
+
+    // ---- register-zone ticks along the guide
+    sctx.save();
+    for (let i = 0; i <= 6; i++) {
+      const x = W * (0.10 + 0.80 * (i / 6));
+      sctx.fillStyle = `rgba(${ar},${ag},${ab},0.16)`;
+      sctx.fillRect(x - 0.5, H * 0.70 - 4, 1, 8);
+    }
+    sctx.restore();
+
+    // ---- particles
+    sctx.save();
+    sctx.globalCompositeOperation = "lighter";
+    for (let i = bursts.length - 1; i >= 0; i--) {
+      const p = bursts[i];
+      p.life -= dt * 1.5;
+      if (p.life <= 0) { bursts.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += 42 * dt; p.vx *= 0.985; p.vy *= 0.985;
+      const a = p.life * p.life * 0.85;
+      blitGlow(sctx, p.x, p.y, (1 + p.life * 2.6) * 8, a);
+    }
+    sctx.restore();
+
+    // ---- hands, drawn as light
+    ["L", "R"].forEach((k) => drawHand(k, ar, ag, ab, tSec));
+
+    // ---- grain + vignette
+    if (!reduceMotion) {
+      grainSeed = (grainSeed + 1) % 5;
+      sctx.save();
+      sctx.globalAlpha = 0.035;
+      sctx.fillStyle = "#ffffff";
+      for (let i = 0; i < 220; i++) {
+        const x = (Math.random() * W) | 0, y = (Math.random() * H) | 0;
+        sctx.fillRect(x, y, 1, 1);
+      }
+      sctx.restore();
+    }
+
+    const vg = sctx.createRadialGradient(W * 0.5, H * 0.5, Math.min(W, H) * 0.28, W * 0.5, H * 0.5, Math.max(W, H) * 0.72);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,0.72)");
+    sctx.fillStyle = vg;
+    sctx.fillRect(0, 0, W, H);
+  }
+
+  function drawHand(which, ar, ag, ab, tSec) {
+    const h = Hands[which];
+    const dir = which === "L" ? -1 : 1;
+    const px = h.x * W, py = h.y * H;
+    const scale = Math.min(W, H) * 0.0016;
+
+    const joints = [];
+    // wrist
+    joints.push({ x: px, y: py - 34 * scale * 10 * 0.1, r: 3.4, a: 0.5 });
+
+    for (let f = 0; f < 5; f++) {
+      const spreadPx = (f - 2) * 0.052 * W * dir;
+      const flex = h.flex[f];
+      const baseY = py - Math.abs(f - 2) * 0.012 * H;
+      const knuckle = { x: px + spreadPx * 0.55, y: baseY, r: 2.6, a: 0.42 };
+      const mid = { x: px + spreadPx * 0.85, y: baseY + 0.038 * H + flex * 0.012 * H, r: 2.3, a: 0.5 };
+      const tip = { x: px + spreadPx, y: baseY + 0.075 * H + flex * 0.05 * H, r: 3.0 + flex * 3.4, a: 0.65 + flex * 0.35 };
+      joints.push(knuckle, mid, tip);
+
+      // bones
+      sctx.save();
+      sctx.strokeStyle = `rgba(${ar},${ag},${ab},${0.16 + flex * 0.42})`;
+      sctx.lineWidth = 1 + flex * 1.2;
+      sctx.lineCap = "round";
+      sctx.beginPath();
+      sctx.moveTo(joints[0].x, joints[0].y);
+      sctx.lineTo(knuckle.x, knuckle.y);
+      sctx.lineTo(mid.x, mid.y);
+      sctx.lineTo(tip.x, tip.y);
+      sctx.stroke();
+      sctx.restore();
+    }
+
+    // palm web
+    sctx.save();
+    sctx.strokeStyle = `rgba(${ar},${ag},${ab},0.13)`;
+    sctx.lineWidth = 1;
+    sctx.beginPath();
+    for (let f = 0; f < 5; f++) {
+      const j = joints[1 + f * 3];
+      if (f === 0) sctx.moveTo(j.x, j.y); else sctx.lineTo(j.x, j.y);
+    }
+    sctx.stroke();
+    sctx.restore();
+
+    // glowing joints
+    sctx.save();
+    sctx.globalCompositeOperation = "lighter";
+    joints.forEach((j) => {
+      blitGlow(sctx, j.x, j.y, j.r * 11, j.a);
+      sctx.fillStyle = `rgba(255,255,255,${Math.min(0.95, j.a)})`;
+      sctx.beginPath(); sctx.arc(j.x, j.y, Math.max(0.9, j.r * 0.42), 0, Math.PI * 2); sctx.fill();
+    });
+    sctx.restore();
+
+    // hand-role label
+    sctx.save();
+    sctx.font = "500 9px ui-monospace, SFMono-Regular, Menlo, monospace";
+    sctx.fillStyle = `rgba(${ar},${ag},${ab},0.42)`;
+    sctx.textAlign = "center";
+    sctx.fillText(which === "L" ? "HARMONY" : "MELODY", px, py - 0.058 * H);
+    sctx.restore();
+  }
+
+  function drawRibbon() {
+    const [ar, ag, ab] = accentRGB();
+    rctx.clearRect(0, 0, RW, RH);
+    rctx.fillStyle = "#0A0C12";
+    rctx.fillRect(0, 0, RW, RH);
+
+    // faint register grid
+    rctx.strokeStyle = "#1A1E2B";
+    rctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      const y = (RH / 4) * i;
+      rctx.beginPath(); rctx.moveTo(0, y); rctx.lineTo(RW, y); rctx.stroke();
+    }
+
+    const now = performance.now();
+    const span = 6000;
+    ribbonNotes.forEach((n) => {
+      const age = now - n.t;
+      if (age > span) return;
+      const x = RW - (age / span) * RW;
+      const norm = Math.min(1, Math.max(0, (n.midi - 30) / 62));
+      const y = RH - norm * (RH - 12) - 6;
+      const a = (1 - age / span) * 0.9;
+      const w = 3 + n.vel * 7;
+      rctx.fillStyle = n.hand === "L"
+        ? `rgba(${ar},${ag},${ab},${a * 0.45})`
+        : `rgba(255,255,255,${a * 0.55})`;
+      rctx.fillRect(x - w / 2, y - 2, w, 3.5);
+
+      if (n.hand === "R" && age < 400) {
+        rctx.save();
+        rctx.globalCompositeOperation = "lighter";
+        blitGlow(rctx, x, y, 28, a * 0.5);
+        rctx.restore();
+      }
+    });
+
+    // playhead
+    rctx.fillStyle = `rgba(${ar},${ag},${ab},0.55)`;
+    rctx.fillRect(RW - 1.5, 0, 1.5, RH);
+  }
+
+  /* ============================================================
+     8. AUTO-PERFORMANCE — the app plays itself until you take over
+     ============================================================ */
+
+  let idleSince = performance.now();
+
+  function onStep(step, when) {
+    const g = Music.genre;
+    const bar = Math.floor(step / 16);
+    const beat = Math.floor((step % 16) / 4);
+    const sub = step % 4;
+
+    // harmony advances on the grid, not on user input
+    if (step % (16 * g.barsPerChord) === 0) {
+      Music.advance();
+      updateReadouts();
+
+      if (Music.band) {
+        const c = Music.current();
+        const v = Music.voiceLead(c, 56);
+        Audio.pad(v.map((m) => m + 12), when, (60 / g.bpm) * 4 * g.barsPerChord * 0.98, g.pad);
+        Audio.piano(c.root + 12 * g.bassOct + 12, 0.5, when, { sustain: 1, gain: 0.9 });
+      }
+    }
+
+    if (Music.band && g.drums) {
+      const amt = g.drums * (0.35 + Music.assist * 0.65);
+      if (Music.key === "jazz") {
+        if (sub === 0) Audio.hat(when, amt * 0.7);
+        if (sub === 3 && Math.random() < 0.6) Audio.hat(when, amt * 0.4);
+        if (beat === 1 || beat === 3) { if (sub === 0) Audio.snare(when, amt, true); }
+        if (beat === 0 && sub === 0) Audio.kick(when, amt * 0.5);
+      } else {
+        if (beat === 0 && sub === 0) Audio.kick(when, amt);
+        if (beat === 2 && sub === 0) Audio.kick(when, amt * 0.8);
+        if ((beat === 1 || beat === 3) && sub === 0) Audio.snare(when, amt, false);
+        if (sub === 0 || sub === 2) Audio.hat(when, amt * 0.55);
+      }
+    }
+
+    // the app keeps playing when nobody is driving it (attract mode)
+    const idle = performance.now() - idleSince > 2600;
+    if (idle) autoPlay(step, when);
+  }
+
+  function autoPlay(step, when) {
+    const g = Music.genre;
+    const sub = step % 4, beat = Math.floor((step % 16) / 4);
+    const density = 0.30 + Music.assist * 0.32;
+
+    // left hand: chord voicing on beat 1 and sometimes 3
+    if (sub === 0 && (beat === 0 || (beat === 2 && Math.random() < 0.5))) {
+      const c = Music.current();
+      const v = Music.voiceLead(c, 55);
+      v.forEach((m, i) => {
+        Audio.piano(m, 0.42 + Math.random() * 0.1, when + i * 0.012, { sustain: Music.genre.sustain });
+        ribbonNotes.push({ midi: m, vel: 0.45, t: performance.now() + i * 12, hand: "L" });
+      });
+      Hands.flash("L", when - Audio.ctx.currentTime);
+      Hands.L.tx = 0.24 + Math.random() * 0.14;
+    }
+
+    // right hand: melody
+    const onGrid = (sub === 0) || (sub === 2 && Math.random() < 0.55) || Math.random() < 0.14;
+    if (onGrid && Math.random() < density + (sub === 0 ? 0.28 : 0)) {
+      if (Math.random() < 0.14) Music.contour *= -1;
+      if (Math.random() < 0.10) Music.contour = 0;
+      else if (Music.contour === 0) Music.contour = Math.random() < 0.5 ? 1 : -1;
+
+      const zone = Math.min(0.95, Math.max(0.05, (Hands.R.tx - 0.14) / 0.72));
+      const strong = sub === 0;
+      const m = Music.nextMelody(Music.contour, strong, zone);
+      const vel = (strong ? 0.62 : 0.42) + Math.random() * 0.22;
+      Audio.piano(m, vel, when, { sustain: g.sustain });
+      ribbonNotes.push({ midi: m, vel, t: performance.now(), hand: "R" });
+      if (ribbonNotes.length > 90) ribbonNotes.shift();
+      Hands.flash("R", when - Audio.ctx.currentTime);
+
+      // drift the right hand to follow the melody's register
+      const targ = 0.14 + 0.72 * Math.min(1, Math.max(0, (m - 58) / 34));
+      Hands.R.tx += (targ - Hands.R.tx) * 0.5;
+
+      // occasional flourish
+      if (strong && Math.random() < g.ornament * Music.assist * 0.55) {
+        const n = 3 + Math.floor(Math.random() * 3);
+        const sd = Transport.stepDur() * 0.5;
+        for (let i = 1; i <= n; i++) {
+          const mm = Music.nextMelody(Music.contour, false, zone);
+          Audio.piano(mm, vel * (0.7 - i * 0.06), when + i * sd, { staccato: true });
+          ribbonNotes.push({ midi: mm, vel: vel * 0.6, t: performance.now() + i * sd * 1000, hand: "R" });
+        }
+      }
+    }
+  }
+
+  /* ============================================================
+     9. UI WIRING
+     ============================================================ */
+
+  const el = (id) => document.getElementById(id);
+  const genresEl = el("genres");
+
+  Object.keys(GENRES).forEach((k, i) => {
+    const b = document.createElement("button");
+    b.className = "genre";
+    b.type = "button";
+    b.textContent = GENRES[k].name;
+    b.setAttribute("aria-pressed", i === 0 ? "true" : "false");
+    b.addEventListener("click", () => selectGenre(k));
+    genresEl.appendChild(b);
+  });
+
+  function selectGenre(k) {
+    Music.setGenre(k);
+    [...genresEl.children].forEach((c, i) => {
+      c.setAttribute("aria-pressed", Object.keys(GENRES)[i] === k ? "true" : "false");
+    });
+    const g = GENRES[k];
+    document.documentElement.style.setProperty("--glow", g.accent);
+    document.documentElement.style.setProperty("--glow-dim", g.accent + "33");
+    buildGlowSprite();
+    updateReadouts();
+  }
+
+  function updateReadouts() {
+    const g = Music.genre;
+    const modeName = g.scale === "ionian" || g.scale === "lydian" ? "major" :
+                     g.scale === "mixolydian" ? "mixolydian" :
+                     g.scale === "dorian" ? "dorian" : "minor";
+    el("r-key").textContent = NOTE_NAMES[g.tonic] + " " + modeName;
+    el("r-bpm").textContent = g.bpm;
+    el("r-chord").textContent = Music.label();
+    el("r-voices").textContent = Audio.voices + " voices";
+  }
+
+  // assist
+  const assistEl = el("assist"), assistOut = el("assist-out");
+  function applyAssist() {
+    const v = +assistEl.value;
+    Music.assist = v / 100;
+    assistEl.style.setProperty("--pct", v + "%");
+    const word = v > 88 ? "full" : v > 62 ? "guided" : v > 34 ? "loose" : v > 12 ? "sparse" : "purist";
+    assistOut.textContent = v + " · " + word;
+  }
+  assistEl.addEventListener("input", applyAssist);
+  applyAssist();
+
+  // tools
+  el("btn-silhouette").addEventListener("click", (e) => {
+    silhouette = !silhouette;
+    e.currentTarget.setAttribute("aria-pressed", String(silhouette));
+  });
+  el("btn-band").addEventListener("click", (e) => {
+    Music.band = !Music.band;
+    e.currentTarget.setAttribute("aria-pressed", String(Music.band));
+    if (Audio.ready) {
+      Audio.padBus.gain.setTargetAtTime(Music.band ? 1 : 0, Audio.ctx.currentTime, 0.2);
+      Audio.drumBus.gain.setTargetAtTime(Music.band ? 1 : 0, Audio.ctx.currentTime, 0.2);
+    }
+  });
+  let recording = false;
+  el("btn-rec").addEventListener("click", (e) => {
+    recording = !recording;
+    e.currentTarget.setAttribute("aria-pressed", String(recording));
+    el("qtext").textContent = recording ? "Recording" : "Tracking good";
+    el("lamp").style.background = recording ? "var(--bad)" : "var(--good)";
+    el("lamp").style.boxShadow = "0 0 8px " + (recording ? "var(--bad)" : "var(--good)");
+  });
+
+  // start
+  const veil = el("veil");
+  function begin() {
+    Audio.init();
+    if (Audio.ctx.state === "suspended") Audio.ctx.resume();
+    Audio.padBus.gain.value = Music.band ? 1 : 0;
+    Audio.drumBus.gain.value = Music.band ? 1 : 0;
+    Audio.setGenre(Music.genre);
+    Transport.onStep = onStep;
+    Transport.start();
+    veil.classList.add("gone");
+    el("r-lat").textContent = Math.round(38 + Math.random() * 8);
+  }
+  el("begin").addEventListener("click", begin);
+  veil.addEventListener("click", begin);
+
+  // pointer play
+  const vp = el("viewport");
+  let lastPt = null, lastPtT = 0;
+
+  vp.addEventListener("pointermove", (e) => {
+    const r = vp.getBoundingClientRect();
+    const nx = (e.clientX - r.left) / r.width;
+    const ny = (e.clientY - r.top) / r.height;
+    Hands.manual = true;
+    Hands.R.tx = Math.min(0.9, Math.max(0.1, nx));
+    Hands.R.ty = Math.min(0.76, Math.max(0.3, ny));
+    const now = performance.now();
+    if (lastPt) {
+      const d = Math.hypot(nx - lastPt.x, ny - lastPt.y);
+      lastPt.speed = d / Math.max(0.001, (now - lastPtT) / 1000);
+    } else lastPt = { x: nx, y: ny, speed: 0 };
+    lastPt.x = nx; lastPt.y = ny; lastPtT = now;
+  });
+
+  vp.addEventListener("pointerdown", (e) => {
+    if (!Audio.ready) { begin(); return; }
+    const r = vp.getBoundingClientRect();
+    const nx = (e.clientX - r.left) / r.width;
+    const zone = Math.min(1, Math.max(0, (nx - 0.1) / 0.8));
+    const vel = Math.min(1, 0.45 + (lastPt ? lastPt.speed * 0.35 : 0) + Math.random() * 0.15);
+    idleSince = performance.now();
+    // left half of the stage is the harmony hand, right half the melody hand
+    if (nx < 0.42) Perform.strike("L", zone, vel, e.shiftKey ? 3 : 2);
+    else Perform.strike("R", zone, vel, e.shiftKey ? 3 : 1);
+  });
+
+  vp.addEventListener("pointerleave", () => { Hands.manual = false; });
+
+  // keyboard play — A–L are ten "fingers"
+  const KEYMAP = "asdfghjkl;".split("");
+  window.addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    // don't hijack keys aimed at a focused control
+    const tag = (e.target && e.target.tagName) || "";
+    if (tag === "BUTTON" || tag === "INPUT" || tag === "TEXTAREA") return;
+    if (e.code === "Space") {
+      e.preventDefault();
+      Music.pedal = true;
+      return;
+    }
+    const i = KEYMAP.indexOf(e.key.toLowerCase());
+    if (i < 0) return;
+    if (!Audio.ready) { begin(); return; }
+    idleSince = performance.now();
+    const zone = i / (KEYMAP.length - 1);
+    const vel = 0.5 + Math.random() * 0.35;
+    if (i < 4) {
+      Hands.L.tx = 0.16 + zone * 0.3;
+      Perform.strike("L", zone, vel, e.shiftKey ? 3 : 2);
+    } else {
+      Hands.R.tx = 0.14 + zone * 0.72;
+      Perform.strike("R", zone, vel, e.shiftKey ? 3 : 1);
+    }
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.code === "Space") Music.pedal = false;
+  });
+
+  /* ============================================================
+     10. LOOP
+     ============================================================ */
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    Hands.update(dt, now / 1000);
+    drawStage(dt, now / 1000);
+    drawRibbon();
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  selectGenre("cinematic");
+  updateReadouts();
+  requestAnimationFrame(frame);
+
+  setInterval(() => {
+    if (Audio.ready) {
+      el("r-voices").textContent = Audio.voices + " voices";
+      el("r-lat").textContent = Math.round(
+        38 + (Audio.ctx.outputLatency || Audio.ctx.baseLatency || 0.01) * 1000
+      );
+    }
+  }, 500);
+
+})();
+</script>
