@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AirKeys — play an invisible piano</title>
+  <meta name="description" content="Play an invisible piano in the air. Your camera watches your hands; AirKeys improvises the music." />
+  <meta name="theme-color" content="#06070B" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</head>
+<body>
+  <div class="backdrop"></div>
+
+  <main class="page">
+    <div class="app">
+
+      <div class="topbar">
+        <div class="wordmark">Air<span>Keys</span></div>
+        <div class="genres">
+          <button class="genre" type="button" aria-pressed="true">Cinematic</button>
+        </div>
+        <div class="tools">
+          <button class="tool" id="btn-particles" type="button" title="Show note particles">Particles</button>
+          <button class="tool" id="btn-ribbon" type="button" title="Show the recent-note ribbon">Ribbon</button>
+          <button class="tool" id="btn-band" type="button" title="Auto-accompaniment">Band</button>
+          <button class="tool" id="btn-camera" type="button" title="Hide the camera, keep the hand-light">Silhouette</button>
+          <button class="tool" id="btn-recal" type="button" title="Re-capture your resting hand pose">Recal</button>
+          <button class="tool" id="btn-rec" type="button" title="Record audio and visuals">Rec</button>
+        </div>
+      </div>
+
+      <div class="viewport" id="viewport">
+        <canvas id="stage"></canvas>
+
+        <div class="vquality"><span class="lamp" id="lamp"></span><span id="qtext">Ready</span></div>
+        <div class="vhint" id="hint">Tap the air where a keyboard would be</div>
+
+        <div class="veil" id="veil">
+          <h1 id="veil-title">Play an invisible piano.</h1>
+          <p id="veil-sub">Your camera watches your hands. Nothing leaves your device.</p>
+          <button class="begin" id="begin" type="button">Start playing</button>
+        </div>
+      </div>
+
+      <div class="ribbon" id="ribbon-wrap">
+        <canvas id="ribbon"></canvas>
+        <span class="label">Recent notes</span>
+      </div>
+
+      <div class="telemetry">
+        <div class="readouts">
+          <span class="key" id="r-key">C minor</span>
+          <span class="sep">/</span>
+          <span><b id="r-bpm">74</b> BPM</span>
+          <span class="sep">/</span>
+          <span id="r-chord">Cm</span>
+          <span class="sep">/</span>
+          <span>lead <b id="r-lat">—</b> ms</span>
+          <span class="sep">/</span>
+          <span><b id="r-fps">—</b> fps</span>
+          <span class="sep">/</span>
+          <span>piano <b id="r-load">0%</b></span>
+        </div>
+        <div class="assist">
+          <label for="assist">Assist</label>
+          <input type="range" id="assist" min="0" max="100" value="75" style="--pct:75%" />
+          <output id="assist-out">75 · guided</output>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="credit">
+      Piano: <a href="https://archive.org/details/SalamanderGrandPianoV3" target="_blank" rel="noopener">Salamander Grand Piano V3</a>
+      by Alexander Holm, <a href="http://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>.
+      Hand tracking runs entirely on your device — no video is uploaded or recorded.
+    </p>
+  </main>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

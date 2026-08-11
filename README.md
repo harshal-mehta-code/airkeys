@@ -17,14 +17,35 @@ suddenly play.
 
 ## Status
 
-**Planning / pre-implementation.** This repository currently contains the
-technical plan and a UI prototype. No production code yet.
+**v1 built and deployable.** One genre (Cinematic), real hand tracking, real
+Salamander piano samples, predictive onset detection.
 
 | Deliverable | State |
 | --- | --- |
-| Research + technical plan | ✅ In `docs/` |
-| Interactive UI prototype | ✅ `prototype/airkeys-prototype.html` (published as an Artifact) |
-| Production implementation | ⬜ Not started — see [`docs/06-roadmap.md`](docs/06-roadmap.md) |
+| Research + technical plan | ✅ `docs/` |
+| Interactive UI prototype | ✅ `prototype/airkeys-prototype.html` |
+| **v1 app** | ✅ `src/` — see [`docs/08-v1-notes.md`](docs/08-v1-notes.md) |
+| Real-hardware validation | ⬜ **Not done** — no camera in the build environment |
+
+> **Read [`docs/08-v1-notes.md`](docs/08-v1-notes.md) before trusting v1.** It
+> lists exactly what is verified and what is not. In short: the perception
+> pipeline has only ever seen synthetic hands, and nobody has heard the audio.
+
+## Running it
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm run build      # typecheck + production build to dist/
+npm run test:onset # predictive onset + false-trigger tests
+```
+
+`predev`/`prebuild` copy the MediaPipe WASM runtime and the piano samples out
+of `node_modules` into `public/` — they are npm dependencies, not committed
+binaries. The hand landmarker model *is* committed, since it has no npm source.
+
+Grant camera access when asked; if you decline or have no camera, the app falls
+back to pointer and `A`–`L` keyboard input and everything else still works.
 
 ---
 
@@ -79,7 +100,8 @@ Read in order:
 | [`04-audio-engine.md`](docs/04-audio-engine.md) | Sampling strategy, DSP, resonance modelling, loudness, mobile audio |
 | [`05-ux-and-product.md`](docs/05-ux-and-product.md) | Onboarding, UI, sharing loop, retention, added features |
 | [`06-roadmap.md`](docs/06-roadmap.md) | Milestones, acceptance criteria, measurement plan |
-| [`07-open-questions.md`](docs/07-open-questions.md) | Decisions needed before implementation starts |
+| [`07-open-questions.md`](docs/07-open-questions.md) | Decision log — all resolved, plus new questions v1 raised |
+| [`08-v1-notes.md`](docs/08-v1-notes.md) | **What v1 actually is: scope, measurements, and what is not verified** |
 
 ---
 
@@ -98,8 +120,12 @@ Open it directly in a browser, or view the published Artifact link.
 
 ---
 
-## Licence / attribution notes
+## Licence / attribution
 
-Sample library licensing is an open decision — see
-[`docs/07-open-questions.md`](docs/07-open-questions.md). Salamander Grand Piano
-(the presumptive default) is CC-BY 3.0 and requires attribution in-app.
+Piano samples are **Salamander Grand Piano V3** by Alexander Holm, licensed
+[CC BY 3.0](http://creativecommons.org/licenses/by/3.0/), sourced via the
+`@audio-samples/piano-mp3-velocity*` packages. Attribution is displayed in-app
+beneath the player, as the licence requires.
+
+Hand tracking uses Google MediaPipe Tasks Vision. All tracking runs on-device;
+no video ever leaves the browser.

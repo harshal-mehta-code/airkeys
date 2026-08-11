@@ -1,0 +1,345 @@
+/* AirKeys — a darkened stage.
+   Single committed theme: this is an instrument surface, not a document, so
+   it stays dark on any host. Every colour is painted explicitly. */
+
+:root {
+  --ground: #06070b;
+  --ground-2: #0a0c12;
+  --panel: #0d0f17;
+  --panel-2: #12151f;
+  --edge: #1e2231;
+  --edge-2: #2a3044;
+
+  --haze: #767e97;
+  --haze-2: #99a1b8;
+  --chalk: #e8ebf3;
+
+  --glow: #7fb2e5;
+  --glow-dim: #7fb2e533;
+
+  --good: #5fd39a;
+  --warn: #f2c45e;
+  --bad: #f27c74;
+
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--chalk);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 70% at 50% -10%, var(--glow-dim) 0%, transparent 60%);
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 20px 40px;
+}
+
+/* ---------- app frame ---------- */
+
+.app {
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 0 #ffffff08 inset, 0 40px 90px -40px #000000cc;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--edge);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  flex-wrap: wrap;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  padding-right: 14px;
+  border-right: 1px solid var(--edge);
+  white-space: nowrap;
+}
+.wordmark span { color: var(--glow); }
+
+.genres { display: flex; gap: 5px; flex: 1 1 auto; }
+
+.genre {
+  appearance: none;
+  border: 1px solid var(--glow);
+  background: var(--glow);
+  color: var(--ground);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 100px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+/* Every tool, recording included, is quiet by default — the stage is the
+   subject and a blinking record pill would compete with it. */
+.tool {
+  appearance: none;
+  border: 1px solid var(--edge);
+  background: var(--ground-2);
+  color: var(--haze);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 160ms, border-color 160ms, background 160ms;
+}
+.tool:hover { color: var(--chalk); border-color: var(--edge-2); }
+.tool[aria-pressed="true"] { color: var(--glow); border-color: var(--glow); background: var(--glow-dim); }
+.tool:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+
+#btn-rec[aria-pressed="true"] { color: var(--bad); border-color: var(--bad); background: #1a0e13; }
+
+/* ---------- viewport ---------- */
+
+.viewport {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #04050a;
+  overflow: hidden;
+  touch-action: none;
+}
+.viewport canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  text-align: center;
+  padding: 20px;
+  background: radial-gradient(60% 60% at 50% 50%, #06070bee, #04050afa);
+  cursor: pointer;
+  z-index: 3;
+  transition: opacity 500ms ease;
+}
+.veil.gone { opacity: 0; pointer-events: none; }
+
+.veil h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(24px, 3.6vw, 38px);
+  margin: 0;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.veil p { margin: 0; color: var(--haze-2); max-width: 46ch; font-size: 14px; }
+
+.begin {
+  appearance: none;
+  border: 1px solid var(--glow);
+  background: var(--glow-dim);
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 13px 26px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: background 200ms, box-shadow 200ms, color 200ms;
+}
+.begin:hover { background: var(--glow); color: var(--ground); box-shadow: 0 0 34px -8px var(--glow); }
+.begin:focus-visible { outline: 2px solid var(--glow); outline-offset: 3px; }
+
+.vhint, .vquality {
+  position: absolute;
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--haze);
+  pointer-events: none;
+}
+.vhint { left: 14px; bottom: 12px; opacity: 0.85; }
+.vquality {
+  right: 14px;
+  top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #06070bbb;
+  border: 1px solid var(--edge);
+  border-radius: 100px;
+  padding: 5px 11px;
+}
+.vquality .lamp {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 8px var(--warn);
+}
+
+/* ---------- ribbon ---------- */
+
+.ribbon {
+  position: relative;
+  height: 62px;
+  background: var(--ground-2);
+  border-top: 1px solid var(--edge);
+}
+.ribbon.hidden { display: none; }
+.ribbon canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ribbon .label {
+  position: absolute;
+  left: 12px;
+  top: 7px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--haze);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ---------- telemetry ---------- */
+
+.telemetry {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-top: 1px solid var(--edge);
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+}
+
+.readouts {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--haze-2);
+  font-variant-numeric: tabular-nums;
+}
+.readouts b { color: var(--chalk); font-weight: 600; }
+.readouts .sep { color: var(--edge-2); }
+.readouts .key { color: var(--glow); font-weight: 600; }
+
+.assist {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 260px;
+}
+.assist label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--haze);
+  white-space: nowrap;
+}
+.assist output {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--chalk);
+  font-variant-numeric: tabular-nums;
+  min-width: 62px;
+  text-align: right;
+}
+
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 1;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--glow) var(--pct, 75%), var(--edge-2) var(--pct, 75%));
+}
+input[type="range"]::-moz-range-track {
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--glow) var(--pct, 75%), var(--edge-2) var(--pct, 75%));
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--chalk);
+  border: 3px solid var(--ground);
+  box-shadow: 0 0 12px -2px var(--glow);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--chalk);
+  border: 3px solid var(--ground);
+}
+input[type="range"]:focus-visible { outline: 2px solid var(--glow); outline-offset: 4px; border-radius: 4px; }
+
+/* ---------- credit ---------- */
+
+.credit {
+  margin: 18px 2px 0;
+  font-size: 12px;
+  color: var(--haze);
+  line-height: 1.7;
+}
+.credit a { color: var(--haze-2); }
+.credit a:hover { color: var(--chalk); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+@media (max-width: 760px) {
+  .page { padding: 14px 10px 28px; }
+  .viewport { aspect-ratio: 3 / 4; }
+  .assist { margin-left: 0; width: 100%; min-width: 0; }
+  .wordmark { border-right: none; padding-right: 0; }
+  .tools { width: 100%; }
+}

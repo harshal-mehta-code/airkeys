@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vercel/
+.DS_Store
+*.log
+
+# Copied out of node_modules by scripts/prepare-assets.mjs
+public/mediapipe/
+public/audio/
