@@ -37,7 +37,34 @@ function copyDir(from, to, filter) {
   return n;
 }
 
-function main() {
+const MODEL_PATH = "public/models/hand_landmarker.task";
+const MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+/**
+ * The model is committed, but a deploy that ships source only (no binaries)
+ * still needs it. Fetch it at build time when it is absent so the deployed app
+ * serves it same-origin either way — no third-party request at runtime.
+ */
+async function ensureModel() {
+  const dst = path.join(root, MODEL_PATH);
+  if (fs.existsSync(dst) && fs.statSync(dst).size > 1_000_000) {
+    console.log(`[assets] model present (${(fs.statSync(dst).size / 1e6).toFixed(1)} MB)`);
+    return;
+  }
+  console.log("[assets] model missing — downloading…");
+  const res = await fetch(MODEL_URL);
+  if (!res.ok) throw new Error(`model download failed: ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length < 1_000_000) throw new Error(`model download too small: ${buf.length} bytes`);
+  fs.mkdirSync(path.dirname(dst), { recursive: true });
+  fs.writeFileSync(dst, buf);
+  console.log(`[assets] model downloaded (${(buf.length / 1e6).toFixed(1)} MB)`);
+}
+
+async function main() {
+  await ensureModel();
+
   // ---- MediaPipe WASM
   const wasmSrc = path.join(NM, "@mediapipe/tasks-vision/wasm");
   if (!fs.existsSync(wasmSrc)) {
@@ -77,4 +104,7 @@ function main() {
   );
 }
 
-main();
+main().catch((e) => {
+  console.error("[assets]", e.message);
+  process.exit(1);
+});
