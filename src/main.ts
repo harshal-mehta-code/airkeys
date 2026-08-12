@@ -32,7 +32,6 @@ const perception: Record<HandSide, HandPerception> = {
   L: new HandPerception("L"),
   R: new HandPerception("R"),
 };
-const calibrated: Record<HandSide, boolean> = { L: false, R: false };
 
 let stage: Stage;
 let started = false;
@@ -70,12 +69,10 @@ function onTrackResult(hands: Array<{ side: string; score: number; world: Float3
       tMs: captureTMs,
     };
 
-    // Calibration disguised as play: capture the rest pose the first time the
-    // hand is steady, so every threshold is relative to this user.
-    if (!calibrated[side] && h.score > 0.75) {
-      p.calibrate(frame);
-      calibrated[side] = true;
-    }
+    // Calibration disguised as play: learn the rest pose over the first few
+    // steady frames, so posture is judged against this user's hand rather
+    // than against whichever frame they happened to be detected in.
+    if (!p.calibrated && h.score > 0.75) p.calibrate(frame);
 
     const strikes = p.update(frame, lead);
     for (const s of strikes) {
@@ -373,8 +370,8 @@ function wireUI() {
   );
 
   $("btn-recal").addEventListener("click", () => {
-    calibrated.L = false;
-    calibrated.R = false;
+    perception.L.recalibrate();
+    perception.R.recalibrate();
     setStatus("Recalibrating — hold your hands still", "warn");
   });
 

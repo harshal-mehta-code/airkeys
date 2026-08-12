@@ -101,9 +101,10 @@ For each of 10 fingers, at 120 Hz:
 
 | Feature | Definition | Used for |
 | --- | --- | --- |
-| `flex` | MCP + PIP joint angle sum (radians) | **Primary strike signal** |
-| `flexVel`, `flexAcc` | 1st/2nd derivative, Savitzky–Golay smoothed | Ballistic model |
-| `tipVel` | fingertip velocity in palm frame, in units of `S`/s | Secondary strike signal |
+| `flex` | MCP + PIP joint angle sum (radians) | Articulation half of the strike signal |
+| `tipDepth` | fingertip image-space y, in hand-lengths | Hand-motion half of the strike signal |
+| `onset` | `flex + tipWeight · tipDepth` | **Primary strike signal** |
+| `onsetVel`, `onsetAcc` | 1st/2nd derivative, polynomial-fit smoothed | Ballistic model |
 | `verticality` | \|downward component\| / ‖velocity‖ | Strike vs. swipe |
 | `spread` | angle to neighbouring fingers | Voicing width |
 | `curlRest` | flexion relative to this user's rest pose | Personalisation |
@@ -217,10 +218,35 @@ fires; between floor and 1, the note plays proportionally softer.
 | --- | --- | --- |
 | **G1** | **Play volume** — hand inside the calibrated slab | Hands at rest, out of frame, reaching for coffee |
 | **G2** | **Posture** — palm normal within a cone of "down", fingers not fisted | Waving, talking with hands, pointing, phone-holding |
-| **G3** | **Articulation** — flexion velocity dominates bulk palm velocity | Repositioning the whole hand (the biggest false-positive source) |
+| **G3** | **Articulation** — onset velocity dominates *lateral* palm velocity | Repositioning the whole hand (the biggest false-positive source) |
 | **G4** | **Kinematic signature** — downstroke duration 50–250 ms, verticality above threshold, plausible amplitude | Swipes, drifts, slow curls |
 | **G5** | **Tracking health** — landmark confidence, no implausible jumps, handedness stable | Occlusion, hand entering/leaving, mistracking |
 | **G6** | **Musical plausibility** — density governor; rate-limits per hand and globally | Flailing, tracking storms, one finger machine-gunning |
+
+### What the first field test changed
+
+The v1 build implemented G3 as designed above but measured bulk motion
+*undirected*, and took flexion alone as the strike signal. Both were wrong in
+the same direction, and together they made the app close to unplayable on a
+phone while every unit test passed:
+
+- **The strike signal was blind to the actual gesture.** Told to play an
+  invisible piano, people tap: the wrist drops and carries the finger with it,
+  sometimes with almost no curl. MediaPipe's world landmarks are hand-centric,
+  so a stiff-finger tap contains *no signal at all* in them. Measured
+  detection rate on wrist-led taps: 0%.
+- **The gate suppressed the signal.** Undirected palm speed treats a tap's
+  downward travel as noise, and the threshold — 1.1 hand-lengths/s, about
+  0.085 screen-widths/s — required a nearly frozen hand. Moving across the
+  keyboard at 0.3 screen-widths/s silenced the instrument completely.
+- **Arming needed four samples** because the cubic does. A 90 ms tap at 30 fps
+  never has four samples inside its own downstroke, so the hardest, most
+  deliberate gesture available was the one most reliably dropped.
+
+The lesson worth keeping: the synthetic hand in `tests/onset.test.mjs` curled
+a finger with the wrist pinned, so the suite scored 100% on the one motion
+nobody makes. Gesture tests are only as honest as the gestures they simulate,
+and the realistic ones now live in the same file.
 
 ### G6 deserves emphasis
 

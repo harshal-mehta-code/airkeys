@@ -278,5 +278,102 @@ console.log("\n--- frame rate robustness ---");
   }
 }
 
+/* ---------------- gestures people actually make ---------------- */
+
+/**
+ * Everything above holds the wrist perfectly still and curls one finger.
+ * Nobody plays that way, and for a while every test here passed while the
+ * app detected nothing at all in the field: told to play an invisible piano,
+ * people *tap* — the wrist drops and carries the finger with it. Because
+ * MediaPipe's world landmarks are hand-centric, that motion is invisible in
+ * them, so these scenarios exercise the image-space half of the signal.
+ */
+
+/** A tap: the hand drops by `drop` (screen heights) and rebounds, while the
+ *  finger curls by `curl`. curl≈0 is a stiff-finger tap, which is common. */
+function runTaps({ curl, drop, durMs = 160, fps = 30, lead = 0.08, lateral = 0, taps = 4, gapMs = 500, phase = 0 }) {
+  const p = new HandPerception("R");
+  const dt = 1000 / fps;
+  const starts = Array.from({ length: taps }, (_, i) => 400 + i * gapMs);
+  const fired = [];
+  let t = phase * dt;
+  let calib = 0;
+
+  while (t < 400 + taps * gapMs + 400) {
+    let c = REST;
+    let d = 0;
+    for (const s of starts) {
+      const u = (t - s) / durMs;
+      if (u <= 0 || u >= 2) continue;
+      const phaseAmt = smoothstep(Math.min(1, u)) - (u > 1 ? smoothstep(u - 1) : 0);
+      c = REST + curl * phaseAmt;
+      d = drop * phaseAmt;
+    }
+    const { world, normed } = makeHand([REST, c, REST, REST, REST], [0.5 + (lateral * t) / 1000, 0.5 + d]);
+    const frame = { side: "R", world, normed, score: 0.95, tMs: t };
+    if (calib++ < 10) p.calibrate(frame);
+    for (const ev of p.update(frame, lead)) fired.push(ev);
+    t += dt;
+  }
+  return { fired, starts, durMs };
+}
+
+const smoothstep = (u) => 3 * u * u - 2 * u * u * u;
+
+/** Detection rate and stray notes, averaged over where frames land in a stroke. */
+function tapScore(cfg) {
+  const N = 12;
+  let hit = 0;
+  let stray = 0;
+  let want = 0;
+  for (let i = 0; i < N; i++) {
+    const { fired, starts, durMs } = runTaps({ ...cfg, phase: i / N });
+    const matched = new Set();
+    for (const ev of fired) {
+      const near = starts.find((s) => Math.abs(ev.contactPerfMs - (s + durMs / 2)) < 150);
+      if (near !== undefined && !matched.has(near)) matched.add(near);
+      else stray++;
+    }
+    hit += matched.size;
+    want += starts.length;
+  }
+  return { rate: hit / want, stray };
+}
+
+console.log("\n--- gestures people actually make ---");
+
+for (const [name, cfg] of [
+  ["wrist-led tap, strong curl", { curl: 0.45, drop: 0.05 }],
+  ["wrist-led tap, light curl", { curl: 0.22, drop: 0.07 }],
+  ["stiff-finger tap — all wrist, no curl", { curl: 0.03, drop: 0.09 }],
+  ["big dramatic tap", { curl: 0.3, drop: 0.16 }],
+  ["fast hard tap, 90ms", { curl: 0.5, drop: 0.1, durMs: 90 }],
+]) {
+  const { rate, stray } = tapScore(cfg);
+  check(`${name} detected`, rate >= 0.9, `${(rate * 100).toFixed(0)}%`);
+  check(`${name} — few strays`, stray <= 6, `(${stray})`);
+}
+
+// Playing *across* the keyboard must not mute the instrument. v1 gated on
+// undirected palm speed, so any hand travel above ~0.085 screen-widths/s
+// suppressed every strike — the hand had to be virtually frozen to play.
+for (const lateral of [0.3, 0.6]) {
+  const { rate } = tapScore({ curl: 0.45, drop: 0.05, lateral });
+  check(`tapping while moving ${lateral} widths/s`, rate >= 0.9, `${(rate * 100).toFixed(0)}%`);
+}
+
+// A phone shares the GPU with the tracker and often lands at 20–30 fps.
+for (const fps of [30, 24, 20]) {
+  const { rate } = tapScore({ curl: 0.45, drop: 0.05, fps });
+  check(`wrist-led tap at ${fps} fps`, rate >= 0.85, `${(rate * 100).toFixed(0)}%`);
+}
+
+// The gate that keeps all of the above from turning noise into notes: a hand
+// drifting downward slowly is not a strike, however far it travels.
+{
+  const { fired } = runTaps({ curl: 0.15, drop: 0.05, durMs: 700, taps: 3 });
+  check("slow hand settle is not a strike", fired.length === 0, `(got ${fired.length})`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

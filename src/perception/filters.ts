@@ -129,6 +129,32 @@ export function fitCubic(ts: number[], ys: number[]): [number, number, number, n
   return [x[0], x[1], x[2], x[3]];
 }
 
+/**
+ * Velocity and acceleration at the newest of three samples, from the exact
+ * parabola through them (Lagrange form, so uneven spacing is fine).
+ *
+ * The cubic above needs four samples and is the only thing that can predict a
+ * peak — but four samples is 200 ms on a 20 fps phone, longer than the whole
+ * gesture. This is what lets a stroke be recognised two frames in, even when
+ * there will never be enough of it to predict.
+ */
+export function quadDeriv(ts: number[], ys: number[]): [number, number] | null {
+  const n = ts.length;
+  if (n < 3) return null;
+  const [x0, x1, x2] = [ts[n - 3], ts[n - 2], ts[n - 1]];
+  const [y0, y1, y2] = [ys[n - 3], ys[n - 2], ys[n - 1]];
+  const d01 = x0 - x1;
+  const d02 = x0 - x2;
+  const d12 = x1 - x2;
+  if (!d01 || !d02 || !d12) return null;
+  const a0 = y0 / (d01 * d02);
+  const a1 = y1 / (-d01 * d12);
+  const a2 = y2 / (d02 * d12);
+  const vel = a0 * (x2 - x1) + a1 * (x2 - x0) + a2 * (2 * x2 - x0 - x1);
+  const acc = 2 * (a0 + a1 + a2);
+  return Number.isFinite(vel) && Number.isFinite(acc) ? [vel, acc] : null;
+}
+
 /** Running median over a short window — robust to the odd wild latency sample. */
 export class RunningMedian {
   private buf: number[] = [];
