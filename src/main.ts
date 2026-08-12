@@ -107,6 +107,13 @@ async function begin() {
   if (started) return;
   started = true;
 
+  // The camera request goes out FIRST, while the tap that got us here is
+  // still live user activation. iOS Safari will not show the permission
+  // prompt otherwise, and awaiting the sample download before asking — as
+  // this used to — reliably lost the gesture on a phone: no prompt, no
+  // camera, and (because the context was never really started) no sound.
+  const cameraReady = startCamera();
+
   setVeil("Waking the piano…", "Loading samples");
   await audio.init();
   audio.setReverb(performer.genre.reverb);
@@ -119,23 +126,55 @@ async function begin() {
   // hand focus back to the document so the A–L keys work immediately
   $<HTMLButtonElement>("begin").blur();
 
-  // Camera is optional: if it fails the app still plays from pointer and
-  // keyboard, which is also how the engine is exercised in tests.
-  try {
-    setStatus("Starting camera…", "warn");
-    camera.onFrame = (bmp, tMs) => tracker.send(bmp, tMs);
-    tracker.onResult = (r) => onTrackResult(r.hands, r.captureTMs);
+  await cameraReady;
+}
+
+let trackerStarted = false;
+
+/**
+ * Camera is optional: if it fails the app still plays from pointer and
+ * keyboard, which is also how the engine is exercised in tests. Never
+ * rejects — the caller awaits it only to sequence status text.
+ */
+function startCamera(): Promise<void> {
+  setStatus("Starting camera…", "warn");
+  camera.onFrame = (bmp, tMs) => tracker.send(bmp, tMs);
+  tracker.onResult = (r) => onTrackResult(r.hands, r.captureTMs);
+  if (!trackerStarted) {
     tracker.init(2);
-    await camera.start();
-    stage.video = camera.video;
-    cameraOn = true;
-    setStatus("Looking for your hands", "warn");
-  } catch (e) {
-    cameraOn = false;
-    cameraError = e instanceof Error ? e.message : String(e);
-    setStatus("No camera — use pointer or A–L", "warn");
-    $("hint").textContent = "No camera. Move and click on the stage, or press A–L.";
+    trackerStarted = true;
   }
+
+  return camera
+    .start()
+    .then(() => {
+      stage.video = camera.video;
+      cameraOn = true;
+      cameraError = "";
+      setStatus("Looking for your hands", "warn");
+      $("hint").textContent = "Tap the air where a keyboard would be";
+      $("cam-retry").hidden = true;
+    })
+    .catch((e: unknown) => {
+      cameraOn = false;
+      cameraError = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      setStatus("No camera — pointer or A–L", "warn");
+      $("hint").textContent = cameraDeniedText(e);
+      // A denial can simply mean the prompt never appeared. The retry button
+      // gives Safari a fresh, unambiguous gesture to hang the prompt on.
+      $("cam-retry").hidden = false;
+    });
+}
+
+function cameraDeniedText(e: unknown): string {
+  const name = e instanceof Error ? e.name : "";
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return "Camera blocked. Allow it below, or in aA → Website Settings on iPhone.";
+  }
+  if (name === "NotFoundError" || name === "OverconstrainedError") {
+    return "No usable camera. Move and tap on the stage, or press A–L.";
+  }
+  return "No camera. Move and tap on the stage, or press A–L.";
 }
 
 function setVeil(title: string, sub: string) {
@@ -185,6 +224,8 @@ function wireFallbackInput() {
   });
 
   vp.addEventListener("pointerdown", (e) => {
+    // controls layered over the stage (the camera retry) are not keystrokes
+    if ((e.target as HTMLElement | null)?.closest("button")) return;
     if (!started) {
       void begin();
       return;
@@ -277,6 +318,18 @@ function wireUI() {
 
   $("begin").addEventListener("click", () => void begin());
   $("veil").addEventListener("click", () => void begin());
+
+  $("cam-retry").addEventListener("click", (e) => {
+    e.stopPropagation();
+    $("cam-retry").hidden = true;
+    void startCamera();
+  });
+
+  // Safari suspends the audio context behind our back (route changes, tab
+  // switches, low power). Any tap is a licence to bring it back.
+  for (const ev of ["pointerdown", "touchend"] as const) {
+    window.addEventListener(ev, () => audio.resumeIfNeeded(), { passive: true });
+  }
 
   const assist = $<HTMLInputElement>("assist");
   const assistOut = $("assist-out");

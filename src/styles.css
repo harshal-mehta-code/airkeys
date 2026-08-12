@@ -190,7 +190,35 @@ body {
   color: var(--haze);
   pointer-events: none;
 }
-.vhint { left: 14px; bottom: 12px; opacity: 0.85; }
+.vhint {
+  left: 14px;
+  bottom: 12px;
+  opacity: 0.85;
+  max-width: min(52ch, calc(100% - 28px));
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+/* Shown only when the camera was refused, so Safari gets a fresh gesture. */
+.cam-retry {
+  position: absolute;
+  z-index: 3;
+  left: 14px;
+  bottom: 46px;
+  appearance: none;
+  border: 1px solid var(--glow);
+  background: var(--glow-dim);
+  color: var(--chalk);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  border-radius: 100px;
+  cursor: pointer;
+}
+.cam-retry[hidden] { display: none; }
+.cam-retry:focus-visible { outline: 2px solid var(--glow); outline-offset: 3px; }
 .vquality {
   right: 14px;
   top: 12px;

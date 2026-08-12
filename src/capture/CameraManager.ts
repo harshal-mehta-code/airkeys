@@ -23,13 +23,17 @@ type VideoWithRVFC = HTMLVideoElement & {
   requestVideoFrameCallback?: (cb: (now: number, meta: RVFCMeta) => void) => number;
 };
 
+/**
+ * Refinements tried *after* permission is granted, best first. These go
+ * through applyConstraints rather than a second getUserMedia, so a device
+ * that cannot honour them just keeps the profile it already gave us.
+ */
 const CANDIDATES: MediaTrackConstraints[] = [
   { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60, min: 30 } },
   { width: { ideal: 960 }, height: { ideal: 540 }, frameRate: { ideal: 60, min: 30 } },
   { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 60, min: 24 } },
   { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
   { width: { ideal: 640 }, height: { ideal: 480 } },
-  {},
 ];
 
 /** When captureTime is unavailable, assume a typical webcam pipeline. */
@@ -54,29 +58,76 @@ export class CameraManager {
 
   constructor() {
     this.video = document.createElement("video");
+    // iOS Safari keys inline playback off the *attribute*, and refuses to
+    // decode a stream into an element that was never attached to a document.
+    this.video.setAttribute("playsinline", "");
+    this.video.setAttribute("muted", "");
+    this.video.setAttribute("autoplay", "");
     this.video.playsInline = true;
     this.video.muted = true;
     this.video.autoplay = true;
+    Object.assign(this.video.style, {
+      position: "fixed",
+      left: "-10000px",
+      top: "0",
+      width: "1px",
+      height: "1px",
+      opacity: "0",
+      pointerEvents: "none",
+    } satisfies Partial<CSSStyleDeclaration>);
   }
 
+  /**
+   * Open the camera.
+   *
+   * MUST be called synchronously from a user gesture. iOS Safari only shows
+   * the permission prompt while the tap that led here still counts as user
+   * activation; anything awaited first (sample downloads, model fetches)
+   * spends that activation and getUserMedia then rejects with NotAllowedError
+   * having never asked the user anything.
+   *
+   * For the same reason there is exactly one getUserMedia call, with the
+   * loosest constraint that still selects the front camera. Walking a list of
+   * increasingly specific constraint sets — as this used to — turns one prompt
+   * into several attempts, and an OverconstrainedError on a phone that cannot
+   * do 720p60 would previously read as "no camera".
+   */
   async start(): Promise<void> {
-    let lastErr: unknown = null;
-    for (const c of CANDIDATES) {
-      try {
-        this.stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", ...c },
-          audio: false,
-        });
-        break;
-      } catch (e) {
-        lastErr = e;
+    if (!globalThis.isSecureContext) {
+      throw new Error("Camera needs a secure connection (https)");
+    }
+    const md = navigator.mediaDevices;
+    if (!md?.getUserMedia) {
+      throw new Error("This browser exposes no camera API");
+    }
+    // start() is re-entered by the retry button; never leave a stream behind.
+    if (this.stream) this.stop();
+
+    this.stream = await md.getUserMedia({ video: { facingMode: "user" }, audio: false });
+
+    // Permission is granted; now negotiate upward for frame rate. A rejected
+    // applyConstraints leaves the track on its current, working profile.
+    const track = this.stream.getVideoTracks()[0];
+    if (track) {
+      for (const c of CANDIDATES) {
+        try {
+          await track.applyConstraints(c);
+          break;
+        } catch {
+          /* device cannot do this profile — try the next, or keep the default */
+        }
       }
     }
-    if (!this.stream) throw lastErr ?? new Error("No camera available");
 
+    if (!this.video.isConnected) document.body.appendChild(this.video);
     this.video.srcObject = this.stream;
-    await this.video.play();
-    this.settings = this.stream.getVideoTracks()[0]?.getSettings() ?? null;
+    try {
+      await this.video.play();
+    } catch {
+      // A muted stream should always be allowed to play; if the promise
+      // rejects the frame loop below still recovers once videoWidth appears.
+    }
+    this.settings = track?.getSettings() ?? null;
     this.running = true;
     this.loop();
   }
@@ -85,6 +136,8 @@ export class CameraManager {
     this.running = false;
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
+    this.video.srcObject = null;
+    this.video.remove();
   }
 
   /** Measured capture-side latency in seconds. */
@@ -131,6 +184,10 @@ export class CameraManager {
   }
 
   private grabbing = false;
+  /** Safari only learned createImageBitmap's resize options in 17. */
+  private canResizeBitmap = true;
+  private scratch: HTMLCanvasElement | null = null;
+
   private grab(captureTMs: number) {
     if (this.grabbing || !this.onFrame) return;
     const vw = this.video.videoWidth;
@@ -139,15 +196,41 @@ export class CameraManager {
 
     this.grabbing = true;
     const scale = Math.min(1, this.inferenceSize / Math.max(vw, vh));
-    void createImageBitmap(this.video, {
-      resizeWidth: Math.round(vw * scale),
-      resizeHeight: Math.round(vh * scale),
-      resizeQuality: "low",
-    })
-      .then((bmp) => {
-        this.grabbing = false;
-        this.onFrame?.(bmp, captureTMs);
+    const w = Math.round(vw * scale);
+    const h = Math.round(vh * scale);
+
+    const done = (bmp: ImageBitmap) => {
+      this.grabbing = false;
+      this.onFrame?.(bmp, captureTMs);
+    };
+
+    if (this.canResizeBitmap) {
+      void createImageBitmap(this.video, {
+        resizeWidth: w,
+        resizeHeight: h,
+        resizeQuality: "low",
       })
+        .then(done)
+        .catch(() => {
+          // Downscale by hand from here on rather than shipping full frames
+          // to the tracker, which would roughly triple inference cost.
+          this.canResizeBitmap = false;
+          this.grabbing = false;
+        });
+      return;
+    }
+
+    const cv = (this.scratch ??= document.createElement("canvas"));
+    cv.width = w;
+    cv.height = h;
+    const ctx = cv.getContext("2d");
+    if (!ctx) {
+      this.grabbing = false;
+      return;
+    }
+    ctx.drawImage(this.video, 0, 0, w, h);
+    void createImageBitmap(cv)
+      .then(done)
       .catch(() => {
         this.grabbing = false;
       });

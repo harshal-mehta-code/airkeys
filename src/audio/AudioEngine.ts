@@ -37,12 +37,35 @@ export class AudioEngine {
 
   async init(): Promise<void> {
     if (this.ready) return;
+
+    // iOS routes plain WebAudio to the *ringer* channel, so the hardware
+    // silent switch mutes the piano completely — the app looks alive and
+    // makes no sound. Declaring a playback session moves it to the media
+    // channel. Safari 16.4+; a no-op everywhere else.
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    if (session) {
+      try {
+        session.type = "playback";
+      } catch {
+        /* older WebKit exposes the object read-only */
+      }
+    }
+
     const AC: typeof AudioContext =
       window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     this.ctx = new AC({ latencyHint: "interactive" });
-    if (this.ctx.state === "suspended") await this.ctx.resume();
+    // Not awaited on purpose: on iOS a resume() issued outside a live user
+    // gesture can stay pending indefinitely, and awaiting it here would hang
+    // startup behind it. resumeIfNeeded() retries on later taps.
+    if (this.ctx.state === "suspended") void this.ctx.resume();
 
     const ctx = this.ctx;
+
+    // Nudge the context out of its "never produced audio" state on iOS.
+    const unlock = ctx.createBufferSource();
+    unlock.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    unlock.connect(ctx.destination);
+    unlock.start(0);
 
     // ---- master chain
     const hp = ctx.createBiquadFilter();
@@ -102,6 +125,12 @@ export class AudioEngine {
     this.sampler = new Sampler(ctx);
     this.ready = true;
     this.syncClock(true);
+  }
+
+  /** Safari suspends the context on its own; call from any user gesture. */
+  resumeIfNeeded() {
+    if (!this.ready || this.ctx.state !== "suspended") return;
+    void this.ctx.resume().then(() => this.syncClock(true));
   }
 
   /* ---------------- clock ---------------- */
